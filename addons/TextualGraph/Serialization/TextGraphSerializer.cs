@@ -72,7 +72,13 @@ public class TextGraphSerializer
 
         foreach (var node in graph.Nodes)
         {
-            var serializer = NodeSerializers[node.NodeType];
+            if (!NodeSerializers.TryGetValue(node.NodeType, out var serializer))
+                continue;
+            
+            if (!serializer.CanSerialize(node, graph))
+                continue;
+
+
             nodeFragments[node.NodeId] = serializer.Serialize(node, graph);
         }
 
@@ -104,7 +110,12 @@ public class TextGraphSerializer
         var nodes = new List<NodeData>();
         foreach (var frag in fragments)
         {
-            var serializer = NodeSerializers[frag.NodeType];
+            if (!NodeSerializers.TryGetValue(frag.NodeType, out var serializer))
+                continue;
+
+            if (!serializer.CanDeserialize(frag))
+                continue;
+
             var node = serializer.Deserialize(frag.Text);
 
             nodes.Add(new NodeData(

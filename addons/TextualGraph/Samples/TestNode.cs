@@ -19,6 +19,8 @@ public partial class TestNode : GraphNode, IGraphNode, IGraphNodeFactory<TestNod
     [Export]
     private TextEdit _textEdit;
 
+    public event MetadataChangedEventHandler MetadataChanged;
+
     public Dictionary<string, object> CustomData
     {
         get => new()

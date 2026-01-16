@@ -3,4 +3,8 @@
     <TargetFramework>net9.0</TargetFramework>
     <EnableDynamicLoading>true</EnableDynamicLoading>
   </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="script_templates\**\*.cs" />
+    <None Remove="script_templates\**\*.cs" />
+  </ItemGroup>
 </Project>

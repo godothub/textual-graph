@@ -85,6 +85,16 @@ public static class GraphNodeFactory
 
         _nodeSerializers ??= [];
 
+        foreach (var config in configs)
+        {
+            // 为没有实现序列化器的节点添加占位序列化器
+            if (!_nodeSerializers.ContainsKey(config.Name))
+            {
+                _nodeSerializers[config.Name] = new NullNodeSerializer(config.Name);
+            }
+        }
+
+
         if (_factories.Count > 0 && _nodeSerializers.Count > 0)
         {
             var toRemove = _factories.Keys
@@ -99,7 +109,7 @@ public static class GraphNodeFactory
             foreach (var k in toRemove)
             {
                 _factories.Remove(k);
-                _nodeSerializers.Remove(k);            
+                _nodeSerializers.Remove(k);
             }
         }
 
@@ -168,7 +178,7 @@ public static class GraphNodeFactory
                 .ToList();
 
         _nodeSerializers = nonAbstractNodeTypes
-            .Where(t => t.IsSubclassOf(typeof(NodeSerializer)))
+            .Where(t => t.IsSubclassOf(typeof(NodeSerializer)) && t != typeof(NullNodeSerializer))
             .Select(t => (NodeSerializer)Activator.CreateInstance(t))
             .ToDictionary(s => s.NodeType, s => s);
     }

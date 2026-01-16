@@ -16,6 +16,8 @@ public partial class TestNode2 : GraphNode, IGraphNode, IGraphNodeFactory<TestNo
     [Export]
     private SpinBox _spinBox;
 
+    public event MetadataChangedEventHandler MetadataChanged;
+
     public Dictionary<string, object> CustomData
     {
         get => new()

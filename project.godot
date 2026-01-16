@@ -8,6 +8,10 @@
 
 config_version=5
 
+[TextualGraph]
+
+Serialization/ImportPath="D:/GodotProjects/textual-graph/addons/TextualGraph/Samples/graph1.json"
+
 [application]
 
 config/name="TextualGraph"

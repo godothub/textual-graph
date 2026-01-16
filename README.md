@@ -39,13 +39,17 @@ TextualGraph 是一个在 Godot 编辑器中可视化编辑节点图并支持从
 
 实现了新的自定义节点后，需要往此处添加对应配置，否则不会自动注册
 
+每个在此配置文件中定义的节点类型都应当有一个对应的 [`NodeSerializer`](addons/TextualGraph/Serialization/NodeSerializer.cs) 实现，否则插件会自动为该节点类型分配一个[空的序列化器（`NullNodeSerializer`）](addons/TextualGraph/Serialization/NullNodeSerializer.cs)，导致该节点在导出时不被包含在序列化输出中。
+这意味着虽然节点可以在编辑器中正常使用，但在保存到文本文件时会被忽略。
+这种机制也可被有意利用，当您希望某些节点（如辅助节点、调试节点或临时标记）仅在编辑器中存在而不需要出现在最终导出的文本中时，可以故意不为它们提供序列化器实现。
+
 ### 导出文件扩展名配置
 
 [export_file_extensions.json](addons/TextualGraph/Config/export_file_extensions.json)
 
 ```json
 [
-    "*.txt;文本文件",
+	"*.txt;文本文件",
     "*.json;JSON源文件"
 ]
 ```
@@ -57,10 +61,10 @@ TextualGraph 是一个在 Godot 编辑器中可视化编辑节点图并支持从
 [serialization.json](addons/TextualGraph/Config/serialization.json)
 ```json
 {
-    "connection_parser" : "json",
-    "text_parser" : "json_array",
-    "fragment_writer": "json_array",
-    "allow_file_extensions":["*.json;JSON源文件"]
+	"connection_parser" : "json",
+	"text_parser" : "json_array",
+	"fragment_writer": "json_array",
+	"allow_file_extensions":["*.json;JSON源文件"]
 }
 ```
 
@@ -82,11 +86,15 @@ TextualGraph 是一个在 Godot 编辑器中可视化编辑节点图并支持从
 
 除此之外，需要为每个自定义节点实现序列化器 [`NodeSerializer`](addons/TextualGraph/Serialization/NodeSerializer.cs)，输出的格式应与其他序列化器组件匹配。存在于节点配置中对应节点的序列化器在编译后自动注册。
 
+**注意：** 如果没有为节点实现特定的序列化器，插件会自动为未实现序列化器的节点类型创建一个[空的序列化器（`NullNodeSerializer`）](addons/TextualGraph/Serialization/NullNodeSerializer.cs)，使得这些节点虽然可以在编辑器中使用，但不会被序列化到输出文件中。这种机制也可以被有意使用，当您希望某些节点类型（如辅助节点、临时标记节点等）仅在编辑器中可见而不影响最终输出时，可以故意不为其提供序列化器实现。
+
 实现 [`FragmentWriter`](addons/TextualGraph/Serialization/FragmentWriter.cs) 来定义在序列化时如何写入文件。在导入时该序列化器组件不是必须的。编译后自动注册。
 
 实现 [`ConnectionParser`](addons/TextualGraph/Serialization/ConnectionParser.cs) 在处理序列化时对节点文本片段进行排序，来决定文本的写入顺序，以及从文本恢复节点图时根据 [`TextParser`](addons/TextualGraph/Serialization/TextParser.cs) 提取的语义片段以及 [`NodeSerializer`](addons/TextualGraph/Serialization/NodeSerializer.cs) 反序列化后的数据来恢复连接信息。编译后自动注册。
 
 实现 [`TextParser`](addons/TextualGraph/Serialization/TextParser.cs) 在导入文本文件时从文本中提取语义，解析为节点片段列表，它将为 [`ConnectionParser`](addons/TextualGraph/Serialization/ConnectionParser.cs) 恢复连接信息提供上下文。在导出时该序列化器组件不是必须的。编译后自动注册。
+
+如果需要监听连接节点的元数据变化，可实现 [`IGraphNodeMetadataListener`](addons/TextualGraph/Editor/EditorNode/IGraphNodeMetadataListener.cs) 接口。当连接节点的元数据发生变更时，会触发 [OnConnectionNodeMetadataChanged](addons/TextualGraph/Editor/EditorNode/IGraphNodeMetadataListener.cs#L22) 方法，使当前节点能够相应地更新自己的状态。例如，[TestNode3](addons/TextualGraph/Samples/TestNode3.cs) 节点就实现了此接口，用于同步连接节点的 SpinBox 值并进行相应的调整。
 
 ## 已知 BUG
 

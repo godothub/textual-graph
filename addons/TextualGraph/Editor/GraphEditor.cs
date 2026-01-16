@@ -1,5 +1,4 @@
 #if TOOLS
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using TextualGraph.Editor.EditorNode;
@@ -135,40 +134,35 @@ public sealed partial class GraphEditor : GraphEdit, ISerializationListener
 		var outputNode = _nodes.FirstOrDefault(n => n.Name == outputNodeName);
 		var inputNode = _nodes.FirstOrDefault(n => n.Name == inputNodeName);
 
+		var outputGraph = outputNode as IGraphNode;
+		var inputGraph = inputNode as IGraphNode;
+
 		// 语义校验
-		if (outputNode is IGraphNode outputGraph)
-		{
-			if (!outputGraph.CanConnectWhenIsOutput(inputNode, inputPort, out var acceptOutputPort))
-				return;
+		if (!outputGraph.CanConnectWhenIsOutput(inputNode, inputPort, out var acceptOutputPort))
+			return;
 
-			if (acceptOutputPort != outputPort)
-				return;
-		}
+		if (acceptOutputPort != outputPort)
+			return;
+		
 
-		if (inputNode is IGraphNode inputGraph)
-		{
-			if (!inputGraph.CanConnectWhenIsInput(outputNode, outputPort, out var acceptInputPort))
-				return;
+		if (!inputGraph.CanConnectWhenIsInput(outputNode, outputPort, out var acceptInputPort))
+			return;
 
-			if (acceptInputPort != inputPort)
-				return;
-		}
+		if (acceptInputPort != inputPort)
+			return;
+	
 
 		// 输出端容量检查
-		if (outputNode is IGraphNode fromLimit)
-		{
-			var max = fromLimit.GetMaxOutputConnections(outputPort);
-			if (max >= 0)
-            	EnsureOutputCapacity(outputNodeName, (int)outputPort, max);
-        }
+		var outputMax = outputGraph.GetMaxOutputConnections(outputPort);
+		if (outputMax >= 0)
+			EnsureOutputCapacity(outputNodeName, (int)outputPort, outputMax);
+	
 
         // 输入端容量检查
-        if (inputNode is IGraphNode toLimit)
-		{
-			var max = toLimit.GetMaxInputConnections(inputPort);
-			if (max >= 0)
-            	EnsureInputCapacity(inputNodeName, (int)inputPort, max);
-        }
+		var inputMax = inputGraph.GetMaxInputConnections(inputPort);
+		if (inputMax >= 0)
+			EnsureInputCapacity(inputNodeName, (int)inputPort, inputMax);
+	
 
         ConnectNode(outputNodeName, (int)outputPort, inputNodeName, (int)inputPort);
 	}
@@ -206,7 +200,7 @@ public sealed partial class GraphEditor : GraphEdit, ISerializationListener
 		_clickPosition = releasePos;
 		ShowNodeSelectWindow(
 			releasePos,
-			inputNode is IGraphNode graphNode ? graphNode.GetValidFromNodeNamesForPort(inputPort) : null,
+			((IGraphNode)inputNode).GetValidFromNodeNamesForPort(inputPort),
 			oneshot: true
 		);
 	}
@@ -220,7 +214,7 @@ public sealed partial class GraphEditor : GraphEdit, ISerializationListener
 		_clickPosition = releasePos;
 		ShowNodeSelectWindow(
 			releasePos,
-			outputNode is IGraphNode graphNode ? graphNode.GetValidToNodeNamesForPort(outputPort) : null,
+			((IGraphNode)outputNode).GetValidToNodeNamesForPort(outputPort),
 			oneshot: true
 		);
     }
@@ -270,7 +264,12 @@ public sealed partial class GraphEditor : GraphEdit, ISerializationListener
 		// 从输入端拖到空白创建的时候要向左偏移，此时是位置刚好是输出端
 		node.PositionOffset = canvasPos + new Vector2(_pendingIsFrom ? -node.Size.X : 0, 0);
 		_nodes.Add(node);
+		
+		var newNode = (IGraphNode)node;
+		newNode.MetadataChanged += OnNodeMetadataChanged;
+
 		AddChild(node);
+
 
 		// 从输入输出端到空白处创建节点时，检查是否能自动连接
 		if (_pendingNodeName != null)
@@ -281,8 +280,7 @@ public sealed partial class GraphEditor : GraphEdit, ISerializationListener
 
 			if (_pendingIsFrom)
 			{
-				if (node is IGraphNode newNode &&
-					newNode.CanConnectWhenIsOutput(pendingNode, _pendingPort, out var outputPort))
+				if (newNode.CanConnectWhenIsOutput(pendingNode, _pendingPort, out var outputPort))
 				{
 					EmitSignalConnectionRequest(
 						node.Name,
@@ -294,8 +292,7 @@ public sealed partial class GraphEditor : GraphEdit, ISerializationListener
 			}
 			else
 			{
-				if (node is IGraphNode newNode &&
-					newNode.CanConnectWhenIsInput(pendingNode, _pendingPort, out var inputPort))
+				if (newNode.CanConnectWhenIsInput(pendingNode, _pendingPort, out var inputPort))
 				{
 					EmitSignalConnectionRequest(
 						pendingNode.Name,
@@ -345,8 +342,8 @@ public sealed partial class GraphEditor : GraphEdit, ISerializationListener
 	}
 
 	private void SetPopPosition(Popup pop, Vector2 pos)
-    {
-        Vector2 globalMousePos = GetScreenPosition() + pos;
+	{
+		Vector2 globalMousePos = GetScreenPosition() + pos;
 
 		var windowSize = _nodeSelectWindow.Size;
 		var screenSize = DisplayServer.ScreenGetSize();
@@ -360,7 +357,45 @@ public sealed partial class GraphEditor : GraphEdit, ISerializationListener
 		);
 
 		pop.Position = clampedPos;
-    }
+	}
+
+	private void OnNodeMetadataChanged(IGraphNode source, Dictionary<string, object> meta)
+	{
+		if (!IsNodeHasConnection((GraphNode)source))
+			return;
+		
+		
+		var connections = GetConnectionListFromNode(source.Name);
+		foreach (var connection in connections)
+		{
+			var output = connection["from_node"].AsString();
+			var input = connection["to_node"].AsString();
+			var outputPort = connection["from_port"].AsInt32();
+			var inputPort = connection["to_port"].AsInt32();
+
+			if (!string.IsNullOrEmpty(output) && output != source.Name)
+			{
+				var outputNode = _nodes.FirstOrDefault(n => n.Name == output);
+				if (outputNode is IGraphNodeMetadataListener listener)
+				{
+					listener.OnConnectionNodeMetadataChanged(source, meta, isOutput: false, port: inputPort);
+				}
+			}
+
+			if (!string.IsNullOrEmpty(input) && input != source.Name)
+			{
+				var inputNode = _nodes.FirstOrDefault(n => n.Name == input);
+				if (inputNode is IGraphNodeMetadataListener listener)
+				{
+					listener.OnConnectionNodeMetadataChanged(source, meta, isOutput: true, port: outputPort);
+				}
+			}
+		}
+	}
+	
+	private bool IsNodeHasConnection(GraphNode node)    
+        => Connections.Any(c => c["from_node"].AsString() == node.Name || c["to_node"].AsString() == node.Name);
+    
 
 	/// <summary>
     /// 获取编辑器中的节点图数据
@@ -462,6 +497,7 @@ public sealed partial class GraphEditor : GraphEdit, ISerializationListener
 
 		// 重新收集子节点
 		_nodes = GetChildren().OfType<GraphNode>().ToList();
+		_nodes.ForEach(n => ((IGraphNode)n).MetadataChanged += OnNodeMetadataChanged);
 		_selectedNodes = _nodes.Cast<GraphElement>().Where(n => n.IsSelected()).ToHashSet();
 		_lastSelectedNode = _selectedNodes.LastOrDefault();
     }

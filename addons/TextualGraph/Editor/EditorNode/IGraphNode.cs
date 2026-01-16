@@ -4,11 +4,18 @@ using Godot;
 
 namespace TextualGraph.Editor.EditorNode;
 
+public delegate void MetadataChangedEventHandler(IGraphNode source, Dictionary<string, object> meta);
+
 /// <summary>
 /// 图节点接口，定义了对话编辑器中图形节点的基本功能和行为
 /// </summary>
 public interface IGraphNode
 {
+    /// <summary>
+    /// 节点元数据改变事件，用于向所有与其建立连接的节点通知元数据已改变
+    /// </summary>
+    event MetadataChangedEventHandler MetadataChanged;
+
     /// <summary>
     /// 节点位置。不需要用户手动实现，直接使用<see cref="Control.Position"/>
     /// </summary>
