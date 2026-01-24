@@ -102,7 +102,7 @@ TextualGraph 是一个在 Godot 编辑器中可视化编辑节点图并支持从
 
 如果需要在连接节点被删除时做出反应，请实现 [INodeLifecycleListener](addons/TextualGraph/Editor/EditorNode/INodeLifecycleListener.cs) 接口
 
-如果需要节点再在反序列化后做出反应，请实现 [IDeserializeListener](addons/TextualGraph/Editor/EditorNode/IDeserializeListener.cs) 接口
+如果需要节点在反序列化后做出反应，请实现 [IDeserializeListener](addons/TextualGraph/Editor/EditorNode/IDeserializeListener.cs) 接口
 
 如果需要在节点接受连接和断开连接时做出反应，请实现 [IConnectionListener](addons/TextualGraph/Editor/EditorNode/IConnectionListener.cs) 接口
 
